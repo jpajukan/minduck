@@ -22,19 +22,20 @@ houghLines = cv2.HoughLinesP(image=edges,rho=0.3,theta=np.pi/200, threshold=10,l
 #minLineLength = 30
 #maxLineGap = 10
 #lines = cv2.HoughLinesP(edges,1,np.pi/180,15,minLineLength,maxLineGap)
-houghLines = houghLines[0]
-#print len(houghLines)
-#print houghLines
-#for x in range(0, len(houghLines)):
-for x1,y1,x2,y2 in houghLines:
-	cv2.line(image,(x1,y1),(x2,y2),(255,0,0),2)
+if len(houghLines) > 0:
+	houghLines = houghLines[0]
+	#print len(houghLines)
+	#print houghLines
+	#for x in range(0, len(houghLines)):
+	for x1,y1,x2,y2 in houghLines:
+		cv2.line(image,(x1,y1),(x2,y2),(255,0,0),2)
 	
 
 
 
-#output = dst
-# show the frame
-cv2.imshow("Frame", image)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+	#output = dst
+	# show the frame
+	cv2.imshow("Frame", image)
+	cv2.waitKey(0)
+	cv2.destroyAllWindows()
 
