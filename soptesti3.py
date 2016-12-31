@@ -4,6 +4,7 @@ import time
 import cv2
 import numpy as np
 
+
 def segmentation(arg,image_gray):
         if arg == 1: #threshold segmentaatio
                 (thresh, image_bw) = cv2.threshold(image_gray, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
@@ -14,6 +15,7 @@ def segmentation(arg,image_gray):
                 return image_gray
         return
 
+# kuvan filterointi
 def blur(arg,image_gra):
         if arg == 1:#Averaging
                 image_gray = cv2.blur(image_gra,(5,5))
@@ -27,9 +29,55 @@ def blur(arg,image_gra):
                 image_gray = image_gra
         return image_gray
 
+# laske cosinin kolmen pisteen valilla
 def angle_cos(p0, p1, p2):
     d1, d2 = (p0-p1).astype('float'), (p2-p1).astype('float')
-    return abs( np.dot(d1, d2) / np.sqrt( np.dot(d1, d1)*np.dot(d2, d2) ) )        
+    return abs( np.dot(d1, d2) / np.sqrt( np.dot(d1, d1)*np.dot(d2, d2) ) )
+
+
+def countour(image,image_bw):
+        # etsi suorakulmaiset contourit        
+        squares = []
+        contours, hierarchy = cv2.findContours(image_bw,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
+        for cnt in contours:
+                
+                cnt_len = cv2.arcLength(cnt, True)
+                cnt = cv2.approxPolyDP(cnt, 0.02*cnt_len, True)
+
+                if len(cnt) == 4 and cv2.contourArea(cnt) > 1000 and cv2.isContourConvex(cnt):
+                        cnt = cnt.reshape(-1, 2)
+                        max_cos = np.max([angle_cos( cnt[i], cnt[(i+1) % 4], cnt[(i+2) % 4] ) for i in xrange(4)])
+                        if max_cos < 0.5:
+                                squares.append(cnt)
+
+        # etsi suurin suorakulmio
+        maximum = 0
+        index = 0
+        i = 0
+        for con in squares:
+                area = cv2.contourArea(con)
+                if area > maximum:
+                        maximum = area
+                        index = i
+                i = i + 1   
+
+        #piirra suurin contour                
+        cv2.drawContours( image, squares, index, (0, 255, 0), -1 )
+        return
+
+def findhand(image):
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        skinMask = cv2.inRange(image, lower, upper)
+        #kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
+        skinMask = cv2.dilate(skinMask, None)
+        skinMask = cv2.erode(skinMask, None)
+	skinMask = cv2.erode(skinMask, None)
+	skinMask = cv2.dilate(skinMask, None)
+	#skinMask = blur(2,skinMask)
+	image.flags.writeable = True
+	image[skinMask == 255] = [0, 0, 255]
+	return
+        
 
 # initialize the camera and grab a reference to the raw camera capture
 camera = PiCamera()
@@ -38,6 +86,8 @@ camera.framerate = 32
 rawCapture = PiRGBArray(camera, size=(640, 480))
 
 
+lower = np.array([0, 48, 80], dtype = "uint8")
+upper = np.array([20, 255, 255], dtype = "uint8")
 
 redBoundLow = np.array([0,0,100], dtype="uint8")
 redBoundUp = np.array([50,56,255], dtype="uint8")
@@ -68,26 +118,14 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
         image_bw = segmentation(1,image_gray);
 
         #canny reunantunnistus
-        edges = cv2.Canny(image_bw,100,200)
+        #image_bw = cv2.Canny(image_bw,100,200)
 
         #dilation
-        edges = cv2.dilate(edges, None)
-        
-        squares = []
-        contours, hierarchy = cv2.findContours(edges,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
-        for cnt in contours:
-                
-                cnt_len = cv2.arcLength(cnt, True)
-                cnt = cv2.approxPolyDP(cnt, 0.02*cnt_len, True)
+        #image_bw = cv2.dilate(image_bw, None)
 
-                if len(cnt) == 4 and cv2.contourArea(cnt) > 1000 and cv2.isContourConvex(cnt):
-                        cnt = cnt.reshape(-1, 2)
-                        max_cos = np.max([angle_cos( cnt[i], cnt[(i+1) % 4], cnt[(i+2) % 4] ) for i in xrange(4)])
-                        if max_cos < 0.5:
-                                squares.append(cnt)
+        countour(image,image_bw)
 
-        cv2.drawContours( image, squares, 0, (0, 255, 0), -1 )
-
+        #findhand(image)
 
 ##        houghLines = cv2.HoughLinesP(edges,rho=0.3,theta=np.pi/200, threshold=10,lines=np.array([]),minLineLength=50,maxLineGap=30)        
 ##
