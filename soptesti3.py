@@ -3,6 +3,7 @@ from picamera import PiCamera
 import time
 import cv2
 import numpy as np
+import random
 
 
 def segmentation(arg,image_gray):
@@ -37,35 +38,40 @@ def angle_cos(p0, p1, p2):
 
 def countour(image,image_bw):
         # etsi suorakulmaiset contourit        
-        squares = []
+        biggest = []
         contours, hierarchy = cv2.findContours(image_bw,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
+        maximumarea = 0
         for cnt in contours:
                 
                 cnt_len = cv2.arcLength(cnt, True)
                 cnt = cv2.approxPolyDP(cnt, 0.02*cnt_len, True)
-
-                if len(cnt) == 4 and cv2.contourArea(cnt) > 1000 and cv2.isContourConvex(cnt):
+                area = cv2.contourArea(cnt)
+                
+                if len(cnt) == 4 and area > 1000 and cv2.isContourConvex(cnt):
+                        orig = cnt
                         cnt = cnt.reshape(-1, 2)
                         max_cos = np.max([angle_cos( cnt[i], cnt[(i+1) % 4], cnt[(i+2) % 4] ) for i in xrange(4)])
-                        if max_cos < 0.5:
-                                squares.append(cnt)
+                        
+                        if max_cos < 0.5:  # kulmien asteiden heitto 90sta asteesta
+                                if maximumarea < area: # tallenna suurin contour
+                                        if maximumarea != 0:
+                                                biggest.pop()
+                                        biggest.append(orig)
+                                        maximumarea = area
 
-        # etsi suurin suorakulmio
-        maximum = 0
-        index = 0
-        i = 0
-        for con in squares:
-                area = cv2.contourArea(con)
-                if area > maximum:
-                        maximum = area
-                        index = i
-                i = i + 1   
+        #piirra suurin contour
+        cv2.drawContours( image, biggest, 0, (0, 255, 0), -1 )
+        #etsi centroid
+        cx = 20
+        cy = 40
+        if len(biggest) > 0:
+                m = cv2.moments(biggest[0])
+                cx = int(m['m10']/m['m00'])
+                cy = int(m['m01']/m['m00'])
+                return biggest[0],(cx,cy) # pelialue loytyi
+        return 0,(cx,cy) # pelialuetta ei loytynyt
 
-        #piirra suurin contour                
-        cv2.drawContours( image, squares, index, (0, 255, 0), -1 )
-        return
-
-def findhand(image):
+def findhand(image):#ei toimi
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         skinMask = cv2.inRange(image, lower, upper)
         #kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
@@ -77,13 +83,24 @@ def findhand(image):
 	image.flags.writeable = True
 	image[skinMask == 255] = [0, 0, 255]
 	return
-        
+
+
 
 # initialize the camera and grab a reference to the raw camera capture
+width = 640
+height = 480
+#pallon alustus
+pointdx = 0
+pointdy = 0
+pointspeed = 25
+#random aloitus suunta pallolle from -pi to pi
+pointangle = random.uniform(-np.pi, np.pi)   
+flagoutside = 0
+
 camera = PiCamera()
-camera.resolution = (640, 480)
+camera.resolution = (width, height)
 camera.framerate = 32
-rawCapture = PiRGBArray(camera, size=(640, 480))
+rawCapture = PiRGBArray(camera, size=(width, height))
 
 
 lower = np.array([0, 48, 80], dtype = "uint8")
@@ -93,7 +110,7 @@ redBoundLow = np.array([0,0,100], dtype="uint8")
 redBoundUp = np.array([50,56,255], dtype="uint8")
 
 # viive kameraa varten
-time.sleep(1)
+time.sleep(0.5)
 
 # ota kuvia kamerasta
 for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
@@ -123,7 +140,46 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
         #dilation
         #image_bw = cv2.dilate(image_bw, None)
 
-        countour(image,image_bw)
+        # etsi pelialue ja sen keskipiste countoureilla
+        cnt, origin = countour(image,image_bw)
+
+        # pallon liikkuminen
+        if type(cnt) is not int:
+
+                # jatka tasta
+                
+                # tarkista onko pallo pelialueessa
+                inside = cv2.pointPolygonTest(cnt, roundedpoint, False)
+                if inside == -1: # pallo ei ole pelialueessa
+                        # laske pallon kimpoamiskulma
+                        minlength = 10000
+                        for c in cnt:
+                                # etsi lahin piste
+                                d1 = c[0][0] - (pointdx + origin[0])
+                                d2 = c[0][1] - (pointdy + origin[1])
+                                length = np.sqrt(d1*d1+d2*d2)
+                                if minlength > length:
+                                        minlength = length
+                                        nearest = c[0]
+                        cv2.circle(image, (nearest[0],nearest[1]), 4, (255,255,255), -1)
+                        wallangle = np.arctan2((pointdy + origin[1])-nearest[1], nearest[0]-(pointdx + origin[0])) # seinan kulma
+                        print wallangle
+                        pointangle = -(pointangle - wallangle)
+                        pointangle = pointangle + wallangle
+
+# jatka tasta# jatka tasta
+                #laske pallon uudet koordinaatit
+                pointdx = np.cos(pointangle)*pointspeed+pointdx
+                pointdy = -(np.sin(pointangle)*pointspeed)+pointdy
+                roundedpoint = (origin[0]+int(round(pointdx)), origin[1]+int(round(pointdy)))
+
+                # piirra pallo
+                cv2.circle(image, roundedpoint, 4, (0,0,255), -1)
+        
+                
+        # piirra keskipiste
+        if type(cnt) is not int:
+                cv2.circle(image, origin, 2, (255,255,255), -1)
 
         #findhand(image)
 
@@ -163,3 +219,4 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
 	# jos painetaan `q` nappia, niin ohjelma loppuu
 	if key == ord("q"):
 		break
+cv2.destroyAllWindows()
