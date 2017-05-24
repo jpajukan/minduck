@@ -10,10 +10,18 @@ def segmentation(arg,image_gray):
         if arg == 1: #threshold segmentaatio
                 (thresh, image_bw) = cv2.threshold(image_gray, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
                 return image_bw
-        elif arg == 2: #canny              
-                canny = cv2.Canny(image_gray,100,200)
+        elif arg == 2: #canny
+                v = np.median(image_gray)
+                sigma = 0.33
+                lower = int(max(0, (1.0 - sigma) * v))
+                upper = int(min(255, (1.0 + sigma) * v))
+                canny = cv2.Canny(image_gray,lower,upper)
+
                 kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(5,5))
                 canny = cv2.morphologyEx(canny, cv2.MORPH_CLOSE, kernel)
+                #canny = cv2.dilate(canny,kernel,iterations = 1)
+                #kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(3,3))
+                #canny = cv2.erode(canny,kernel,iterations = 1)
                 return canny
         elif arg == 3: #ss
                 print "tyhja"
