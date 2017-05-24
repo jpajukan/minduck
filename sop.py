@@ -10,33 +10,17 @@ def segmentation(arg,image_gray):
         if arg == 1: #threshold segmentaatio
                 (thresh, image_bw) = cv2.threshold(image_gray, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
                 return image_bw
-        elif arg == 2: #watershed kayttaen aina otsua              
-                ret,thresh = cv2.threshold(image_gray, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-                fg = cv2.erode(thresh,None,iterations = 2)
-                bgt = cv2.dilate(thresh,None,iterations = 3)
-                ret,bg = cv2.threshold(bgt,1,128,1)
-                marker = cv2.add(fg,bg)
-                marker32 = np.int32(marker)
-                cv2.watershed(image,marker32)
-                m = cv2.convertScaleAbs(marker32)
-                ret,thresh = cv2.threshold(m,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-                return thresh
-        elif arg == 3: #adaptive threshold
-                image_bw = cv2.adaptiveThreshold(image_gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 41, 5)
-                return image_bw
+        elif arg == 2: #canny              
+                canny = cv2.Canny(image_gray,100,200)
+                kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(5,5))
+                canny = cv2.morphologyEx(canny, cv2.MORPH_CLOSE, kernel)
+                return canny
+        elif arg == 3: #ss
+                print "tyhja"
         elif arg == 4: #grabCut
                 print "tyhja"
-        elif arg == 5: #watershed kayttaen edellista kuvaa       
-                ret,thresh = cv2.threshold(image_gray, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-                fg = cv2.erode(thresh,None,iterations = 2)
-                bgt = cv2.dilate(thresh,None,iterations = 3)
-                ret,bg = cv2.threshold(bgt,1,128,1)
-                marker = cv2.add(fg,bg)
-                marker32 = np.int32(marker)
-                cv2.watershed(image,marker32)
-                m = cv2.convertScaleAbs(marker32)
-                ret,thresh = cv2.threshold(m,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-                return thresh
+        elif arg == 5: #ss
+                print "tyhja"
         elif arg == 0:
                 return image_gray
         return image_gray
@@ -215,15 +199,16 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
         #segmentointi, jos parametri on:
         #0 == ei mitaan
         #1 == threshold (otsu)
-        #2 == #watershed kayttaen aina otsua 
-        #3 == adaptive threshold
-        #4 == grabCut
-        #5 == watershed kayttaen edellista kuvaa  
-        image_bw = segmentation(1,image_gray);
+        #2 == canny
+        #3 == tyhja
+        #4 == tyhja
+        #5 == tyhja
+        image_bw = segmentation(2,image_gray);
 
-        #canny reunantunnistus
-        #canny = cv2.Canny(image_gray,100,200)
-
+        #testi kuva
+	cv2.imshow("canny", image_bw)
+	key = cv2.waitKey(1) & 0xFF
+	
         #dilation
         #image_bw = cv2.dilate(image_bw, None)
         
@@ -396,8 +381,8 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
 
         # nayta kuva
 	cv2.imshow("sop", image)
-        cv2.imshow("watershedMask", watershedMask)
-	watershedMask
+
+
 	key = cv2.waitKey(1) & 0xFF
 
         # tyhjenna stream seuraavaa kuvaa varten
@@ -407,4 +392,3 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
 		break
 cv2.destroyAllWindows()
 
-# region growing seg
