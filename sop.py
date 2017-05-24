@@ -15,7 +15,7 @@ def segmentation(arg,image_gray):
                 sigma = 0.33
                 lower = int(max(0, (1.0 - sigma) * v))
                 upper = int(min(255, (1.0 + sigma) * v))
-                canny = cv2.Canny(image_gray,lower,upper)
+                canny = cv2.Canny(image_gray,10,200)
 
                 kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(5,5))
                 canny = cv2.morphologyEx(canny, cv2.MORPH_CLOSE, kernel)
