@@ -10,7 +10,7 @@ def segmentation(arg,image_gray):
         if arg == 1: #threshold segmentaatio
                 (thresh, image_bw) = cv2.threshold(image_gray, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
                 return image_bw
-        elif arg == 2: #canny
+        elif arg == 2: #canny (kayta 3 == Median Blurring)
                 #v = np.median(image_gray)
                 #sigma = 0.33
                 #lower = int(max(0, (1.0 - sigma) * v))
@@ -104,7 +104,7 @@ def contourThatHasCentroid(image_bw, centroidx, centroidy, areafound):
                         print '5 kulmaa'
                         cnt = np.delete(cnt, 4, 0)
                 if len(cnt) > 5: # yli 5 kulmaa
-                        print '6 kulmaa'
+                        print 'yli 5 kulmaa'
                         cnt = np.delete(cnt, np.s_[4:], 0)
                 # ------------------------------------------------------------------------
                 
@@ -218,7 +218,7 @@ def main():
                 #segmentointi, jos parametri on:
                 #0 == ei mitaan
                 #1 == threshold (otsu)
-                #2 == canny
+                #2 == canny (kayta 3 == Median Blurring)
                 #3 == tyhja
                 #4 == tyhja
                 #5 == tyhja
