@@ -102,7 +102,7 @@ def contourThatHasCentroid(image_bw, centroidx, centroidy, areafound):
                 # poista kulmat jos kulmia on yli 4
                 if len(cnt) == 5: # 5 kulmaa
                         print '5 kulmaa'
-                        MinDist = 9999
+                        MinDist = float('inf')
                         delete = 4
                         for idx1, i in enumerate(cnt):
                                 for idx2, k in enumerate(cnt):
