@@ -102,7 +102,17 @@ def contourThatHasCentroid(image_bw, centroidx, centroidy, areafound):
                 # poista kulmat jos kulmia on yli 4
                 if len(cnt) == 5: # 5 kulmaa
                         print '5 kulmaa'
-                        cnt = np.delete(cnt, 4, 0)
+                        MinDist = 9999
+                        delete = 4
+                        for idx1, i in enumerate(cnt):
+                                for idx2, k in enumerate(cnt):
+                                        if not (i==k).all():
+                                                dist = np.linalg.norm(i-k)
+                                                if dist < MinDist:
+                                                        MinDist = dist
+                                                        delete = idx2
+                        cnt = np.delete(cnt, delete, 0)
+                        
                 if len(cnt) > 5: # yli 5 kulmaa
                         print 'yli 5 kulmaa'
                         cnt = np.delete(cnt, np.s_[4:], 0)
