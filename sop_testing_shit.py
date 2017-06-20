@@ -161,7 +161,8 @@ def corner_pruning2(cnt):
     if len(cnt) == 6:
         # nelja heikkoa 2 vahvaa
         return cnt
-        pass
+
+    return cnt
 
 
 def corner_pruning(cnt):
