@@ -2,6 +2,66 @@ import time
 import cv2
 import numpy as np
 import random
+from math import sqrt
+
+
+
+def prune_1_by_min_distance(cnt):
+    MinAvgDist = float('inf')
+    delete = 4
+    for idx1, i in enumerate(cnt):
+        distance_sum = 0
+        for idx2, k in enumerate(cnt):
+            if not (i == k).all():
+                dist = np.linalg.norm(i - k)
+                distance_sum += dist
+
+        if distance_sum < MinAvgDist:
+            MinAvgDist = distance_sum
+            delete = idx1
+
+    cnt = np.delete(cnt, delete, 0)
+    return cnt
+
+
+def get_strongest_corner(cnt, exclude):
+    MaxAvgDist = 0
+    strongest = 4
+    for idx1, i in enumerate(cnt):
+        if idx1 in exclude:
+            continue
+
+        distance_sum = 0
+        for idx2, k in enumerate(cnt):
+            if not (i == k).all():
+                dist = np.linalg.norm(i - k)
+                distance_sum += dist
+
+        if distance_sum > MaxAvgDist:
+            MaxAvgDist = distance_sum
+            strongest = idx1
+
+    return strongest
+
+def get_weakest_corner(cnt, exclude):
+    MinAvgDist = float('inf')
+    weakest = 4
+    for idx1, i in enumerate(cnt):
+        if idx1 in exclude:
+            continue
+
+        distance_sum = 0
+        for idx2, k in enumerate(cnt):
+            if not (i == k).all():
+                dist = np.linalg.norm(i - k)
+                distance_sum += dist
+
+        if distance_sum < MinAvgDist:
+            MinAvgDist = distance_sum
+            weakest = idx1
+
+    return weakest
+
 
 
 def line_intersection(line1, line2):
@@ -13,72 +73,98 @@ def line_intersection(line1, line2):
 
     div = det(xdiff, ydiff)
     if div == 0:
-       raise Exception('lines do not intersect')
+       return -1, -1
 
     d = (det(*line1), det(*line2))
     x = det(d, xdiff) / div
     y = det(d, ydiff) / div
     return x, y
 
-def corner_pruning(cnt):
-    # varmat kulmat
-    if len(cnt) == 5:  # 5 kulmaa
-        MinDist = float('inf')
-        delete1 = 4
-        for idx1, i in enumerate(cnt):
-            for idx2, k in enumerate(cnt):
-                if not (i == k).all():
-                    dist = np.linalg.norm(i - k)
-                    if dist < MinDist:
-                        MinDist = dist
-                        delete1 = idx2
 
-        MinDist = float('inf')
-        delete2 = 4
-        for idx1, i in enumerate(cnt):
-            for idx2, k in enumerate(cnt):
-                if not (i == k).all():
-                    dist = np.linalg.norm(i - k)
-                    if dist < MinDist and idx2 != delete1:
-                        MinDist = dist
-                        delete2 = idx2
+def point_distance(p1, p2):
+    return sqrt( (p1[0] - p2[0])**2 + (p1[1] - p2[1])**2 )
 
-        MinDist = float('inf')
-        delete1pair = 4
-        #for idx1, i in enumerate(cnt):
-        i = cnt[delete1]
-        for idx2, k in enumerate(cnt):
-            if not (i == k).all():
-                dist = np.linalg.norm(i - k)
-                if dist < MinDist and idx2 != delete2:
-                    MinDist = dist
-                    delete1pair = idx2
+def corner_pruning2(cnt):
+    if len(cnt) == 5:
+        # kaksi heikkoa 3 vahvaa
+        weaks = []
+        strongs = []
 
-        MinDist = float('inf')
-        delete2pair = 4
-        #for idx1, i in enumerate(cnt):
-        i = cnt[delete2]
-        for idx2, k in enumerate(cnt):
-            if not (i == k).all():
-                dist = np.linalg.norm(i - k)
-                if dist < MinDist and idx2 != delete1:
-                    MinDist = dist
-                    delete2pair = idx2
+        w = get_weakest_corner(cnt, weaks)
+        weaks.append(w)
 
-        ttuple = (cnt[delete1], cnt[delete1pair])
-        print cnt[delete1][0]
-        print cnt[delete1pair][0]
-        print cnt[delete2][0]
-        print cnt[delete2pair][0]
+        w = get_weakest_corner(cnt, weaks)
+        weaks.append(w)
 
-        expected_corner = line_intersection((cnt[delete1][0], cnt[delete1pair][0]),(cnt[delete2][0], cnt[delete2pair][0]))
-        print expected_corner
-        ec = np.array([[[expected_corner[0], expected_corner[1]]]])
+        for i in range(0, 5):
+            if i not in weaks:
+                strongs.append(i)
+
+        # Testataan kaikki vahva-heikko suoraparit
+
+        lines = []
+
+        print weaks
+        print len(weaks)
+        print strongs
+        print len(strongs)
+        additional_points = []
+
+
+        #Lasketaan todennakoisimmin vastainen vahva kulma
+
+        excluded_strongpoint = 0
+        max_distance = 0
+        for s_p in strongs:
+            dist_sum = 0
+            for w_p in weaks:
+                dist_sum += point_distance(cnt[s_p][0], cnt[w_p][0])
+
+            if max_distance < dist_sum:
+                excluded_strongpoint = s_p
+                max_distance = dist_sum
+
+
+
+        for s_point in strongs:
+            if s_point == excluded_strongpoint:
+                continue
+            for w_point in weaks:
+                lines.append((cnt[s_point][0], cnt[w_point][0]))
+
+        for line1 in lines:
+            for line2 in lines:
+                # tarkistus saman weakpointin varalta
+                if (line1[1] == line2[1]).all():
+                    print "samat"
+                    continue
+
+                result = line_intersection(line1, line2)
+
+                # TODO: automaattinen leveys ja korkeus
+                if not((result[0] < 0) or (result[1] < 0) or (result[0] > 320) or (result[1] > 240)):
+                    #additional_points.append()
+                    ec = np.array([[[result[0], result[1]]]])
+                    cnt = np.append(cnt, ec, axis=0)
+
+
+        #return cnt
+        print "cnt ennen"
         print cnt
-        print ec
-        cnt = np.append(cnt, ec, axis=0)
+        while len(cnt) > 4:
+            cnt = prune_1_by_min_distance(cnt)
 
-    return cnt
+        print "cnt jalkeen"
+        print cnt
+        return cnt
+
+    if len(cnt) == 6:
+        # nelja heikkoa 2 vahvaa
+        return cnt
+        pass
+
+
+def corner_pruning(cnt):
     if len(cnt) == 5:  # 5 kulmaa
         print "5 kulmaa"
         MinDist = float('inf')
@@ -199,7 +285,7 @@ def contourThatHasCentroid(image_bw, centroidx, centroidy, areafound):
         insidearea = cv2.pointPolygonTest(cnt, (centroidx, centroidy), False)
         if insidearea == 1:
 
-            cnt = corner_pruning(cnt)
+            cnt = corner_pruning2(cnt)
             # tama voi muuttua -------------------------------------------------------
             # poista kulmat jos kulmia on yli 4
             # if len(cnt) == 5:  # 5 kulmaa

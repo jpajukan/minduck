@@ -23,6 +23,7 @@ def main():
     for image_file_name in imagenames:
         # Lataa kuva
 
+        print image_file_name
         im = Image.open(folder + "/" + image_file_name)
         im = im.convert('RGB')
 
