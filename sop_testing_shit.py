@@ -160,6 +160,11 @@ def corner_pruning2(cnt):
 
     if len(cnt) == 6:
         # nelja heikkoa 2 vahvaa
+        cnt = prune_1_by_min_distance(cnt)
+
+        cnt = corner_pruning2(cnt)
+
+
         return cnt
 
     return cnt
