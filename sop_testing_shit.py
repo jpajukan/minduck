@@ -169,6 +169,147 @@ def corner_pruning2(cnt):
 
     return cnt
 
+def corner_angle(a, b, c):
+
+    e1 = -b + a
+    e2 = -b + c
+
+    num = np.dot(e1, e2)
+    denom = np.linalg.norm(e1) * np.linalg.norm(e2)
+
+    angle = np.arccos(num / denom) * 180 / np.pi
+
+    #print angle
+    return angle
+
+def corner_pruning3(cnt):
+    if len(cnt) >= 5:
+        # kaksi heikkoa 3 vahvaa jos cnt on 5
+        # 4 heikkoa 2 vahvaa jos cnt on 6
+
+        if len(cnt) > 6:
+            cnt = prune_1_by_min_distance(cnt)
+            cnt = corner_pruning3(cnt)
+            return cnt
+
+
+        weaks = []
+        strongs = []
+
+        #w = get_weakest_corner(cnt, weaks)
+        #weaks.append(w)
+
+        #w = get_weakest_corner(cnt, weaks)
+        #weaks.append(w)
+
+        angles = []
+
+        for i in range(0, len(cnt)):
+            point2 = i + 1
+
+            # Huonoa kovakoodia
+            if point2 >= len(cnt):
+                point2 -= len(cnt)
+
+            a = corner_angle(cnt[i-1][0], cnt[i][0], cnt[point2][0])
+            angles.append(a)
+
+        angles_np = np.array(angles)
+
+        k = 2
+
+        if len(cnt) == 5:
+            k = 2
+
+        if len(cnt) == 6:
+            k = 4
+
+        idx = np.argpartition(angles_np, -k)
+        weaks = idx[-k:]
+
+        for i in range(0, len(cnt)):
+            if i not in weaks:
+                strongs.append(i)
+
+
+        #print weaks
+        #print len(weaks)
+        #print strongs
+        #print len(strongs)
+
+
+        # Lasketaan suorien leikkauspisteiaa seuraavalla logiikalla:
+        # Kierretaan contourit ympari
+        # Jos tama ja seuraava kulma ovat weak-strong tai strong-weak ei lopeteta kierrosta
+        # Jos seuraavan seuraava ja sita seuraava kulma ovat weak-weak tai weak-strong niin otetaan suoran risteys
+        # Sama vastapaivaan?
+
+        additional_points = np.empty((0, 1, 2), dtype=int)
+
+        #print additional_points.shape
+
+        #print cnt
+
+        for i in range(0, len(cnt)):
+            next_point = i + 1
+            next_point2 = i + 2
+            next_point3 = i + 3
+
+            if next_point >= len(cnt):
+                next_point -= len(cnt)
+
+            if next_point2 >= len(cnt):
+                next_point2 -= len(cnt)
+
+            if next_point3 >= len(cnt):
+                next_point3 -= len(cnt)
+
+            # Vahvoihin reunoihin ei kannata tehda lisalaskentaa
+            if (i in strongs) and (next_point in strongs):
+                continue
+
+            # Jos seuraava kulmapiste on "varma" niin ei siihen kannata piirtaa suoraa kun se menee ulos alueelta
+            if (i in weaks) and (next_point in strongs):
+                continue
+
+            # Ei oteta heikkojen kulmien valille piirrettyja linjoja
+            if (i in weaks) and (next_point in weaks):
+                if (next_point2 in weaks) and (next_point3 in weaks):
+                    continue
+
+            # Vahvoihin reunoihin ei voi tulla lisakulmia joten ei lasketa niita
+            if (next_point2 in strongs) and (next_point3 in strongs):
+                continue
+
+            # Ei voi vahvaan kulmaan tulla lisakulmaa koska menisi vaan alueelta ulos
+            if (next_point2 in strongs) and (next_point3 in weaks):
+                continue
+
+            line1 = (cnt[i][0], cnt[next_point][0])
+            line2 = (cnt[next_point2][0], cnt[next_point3][0])
+
+            result = line_intersection(line1, line2)
+
+            print result
+            # TODO: automaattinen leveys ja korkeus
+            if not ((result[0] < 0) or (result[1] < 0) or (result[0] > 320) or (result[1] > 240)):
+                ec = np.array([[[result[0], result[1]]]])
+                #print ec.shape
+                #print cnt.shape
+                additional_points = np.append(additional_points, ec, axis=0)
+
+
+        #print additional_points
+        cnt = np.append(cnt, additional_points, axis=0)
+
+        while len(cnt) > 4:
+            cnt = prune_1_by_min_distance(cnt)
+
+        # Pitaako tehda karsinta etta ensin heikot kulmat pois?
+        return cnt
+
+    return cnt
+
 
 def corner_pruning(cnt):
     if len(cnt) == 5:  # 5 kulmaa
@@ -291,7 +432,7 @@ def contourThatHasCentroid(image_bw, centroidx, centroidy, areafound):
         insidearea = cv2.pointPolygonTest(cnt, (centroidx, centroidy), False)
         if insidearea == 1:
 
-            cnt = corner_pruning2(cnt)
+            cnt = corner_pruning3(cnt)
             # tama voi muuttua -------------------------------------------------------
             # poista kulmat jos kulmia on yli 4
             # if len(cnt) == 5:  # 5 kulmaa
