@@ -169,17 +169,15 @@ def corner_pruning2(cnt):
 
     return cnt
 
-def corner_angle(a, b, c):
 
+def corner_angle(a, b, c):
     e1 = -b + a
     e2 = -b + c
 
     num = np.dot(e1, e2)
     denom = np.linalg.norm(e1) * np.linalg.norm(e2)
-
     angle = np.arccos(num / denom) * 180 / np.pi
 
-    #print angle
     return angle
 
 def corner_pruning3(cnt):
@@ -192,22 +190,14 @@ def corner_pruning3(cnt):
             cnt = corner_pruning3(cnt)
             return cnt
 
-
         weaks = []
         strongs = []
-
-        #w = get_weakest_corner(cnt, weaks)
-        #weaks.append(w)
-
-        #w = get_weakest_corner(cnt, weaks)
-        #weaks.append(w)
 
         angles = []
 
         for i in range(0, len(cnt)):
             point2 = i + 1
 
-            # Huonoa kovakoodia
             if point2 >= len(cnt):
                 point2 -= len(cnt)
 
@@ -231,24 +221,7 @@ def corner_pruning3(cnt):
             if i not in weaks:
                 strongs.append(i)
 
-
-        #print weaks
-        #print len(weaks)
-        #print strongs
-        #print len(strongs)
-
-
-        # Lasketaan suorien leikkauspisteiaa seuraavalla logiikalla:
-        # Kierretaan contourit ympari
-        # Jos tama ja seuraava kulma ovat weak-strong tai strong-weak ei lopeteta kierrosta
-        # Jos seuraavan seuraava ja sita seuraava kulma ovat weak-weak tai weak-strong niin otetaan suoran risteys
-        # Sama vastapaivaan?
-
         additional_points = np.empty((0, 1, 2), dtype=int)
-
-        #print additional_points.shape
-
-        #print cnt
 
         for i in range(0, len(cnt)):
             next_point = i + 1
@@ -290,22 +263,25 @@ def corner_pruning3(cnt):
 
             result = line_intersection(line1, line2)
 
-            print result
             # TODO: automaattinen leveys ja korkeus
             if not ((result[0] < 0) or (result[1] < 0) or (result[0] > 320) or (result[1] > 240)):
                 ec = np.array([[[result[0], result[1]]]])
-                #print ec.shape
-                #print cnt.shape
                 additional_points = np.append(additional_points, ec, axis=0)
 
-
-        #print additional_points
         cnt = np.append(cnt, additional_points, axis=0)
 
+        sorted_weaks = sorted(weaks, key=int, reverse=True)
+
+        # Karsitaan heikot pois ensin
+        for w in sorted_weaks:
+            if len(cnt) == 4:
+                break
+            cnt = np.delete(cnt, w, 0)
+
+        # Viimeinen puhdistus, ei pitaisi aina edes menna tahan asti
         while len(cnt) > 4:
             cnt = prune_1_by_min_distance(cnt)
 
-        # Pitaako tehda karsinta etta ensin heikot kulmat pois?
         return cnt
 
     return cnt
