@@ -271,12 +271,12 @@ def corner_pruning3(cnt):
         cnt = np.append(cnt, additional_points, axis=0)
 
         sorted_weaks = sorted(weaks, key=int, reverse=True)
-
+        #return cnt
         # Karsitaan heikot pois ensin
-        for w in sorted_weaks:
-            if len(cnt) == 4:
-                break
-            cnt = np.delete(cnt, w, 0)
+        #for w in sorted_weaks:
+        #    if len(cnt) == 4:
+        #        break
+        #    cnt = np.delete(cnt, w, 0)
 
         # Viimeinen puhdistus, ei pitaisi aina edes menna tahan asti
         while len(cnt) > 4:

@@ -86,7 +86,7 @@ def main():
             cnt, origin, centroidx, centroidy, areafound = contourThatHasCentroid(image_bw, centroidx, centroidy,
                                                                                   areafound)  # jos tiedetaan edellinen centroid
 
-        print cnt
+        #print cnt
         draw = ImageDraw.Draw(im)
 
         for piste in cnt:
