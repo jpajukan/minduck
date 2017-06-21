@@ -4,6 +4,308 @@ import time
 import cv2
 import numpy as np
 import random
+from math import sqrt
+
+def prune_1_by_min_distance(cnt):
+    MinAvgDist = float('inf')
+    delete = 4
+    for idx1, i in enumerate(cnt):
+        distance_sum = 0
+        for idx2, k in enumerate(cnt):
+            if not (i == k).all():
+                dist = np.linalg.norm(i - k)
+                distance_sum += dist
+
+        if distance_sum < MinAvgDist:
+            MinAvgDist = distance_sum
+            delete = idx1
+
+    cnt = np.delete(cnt, delete, 0)
+    return cnt
+
+
+def get_strongest_corner(cnt, exclude):
+    MaxAvgDist = 0
+    strongest = 4
+    for idx1, i in enumerate(cnt):
+        if idx1 in exclude:
+            continue
+
+        distance_sum = 0
+        for idx2, k in enumerate(cnt):
+            if not (i == k).all():
+                dist = np.linalg.norm(i - k)
+                distance_sum += dist
+
+        if distance_sum > MaxAvgDist:
+            MaxAvgDist = distance_sum
+            strongest = idx1
+
+    return strongest
+
+def get_weakest_corner(cnt, exclude):
+    MinAvgDist = float('inf')
+    weakest = 4
+    for idx1, i in enumerate(cnt):
+        if idx1 in exclude:
+            continue
+
+        distance_sum = 0
+        for idx2, k in enumerate(cnt):
+            if not (i == k).all():
+                dist = np.linalg.norm(i - k)
+                distance_sum += dist
+
+        if distance_sum < MinAvgDist:
+            MinAvgDist = distance_sum
+            weakest = idx1
+
+    return weakest
+
+
+
+def line_intersection(line1, line2):
+    xdiff = (line1[0][0] - line1[1][0], line2[0][0] - line2[1][0])
+    ydiff = (line1[0][1] - line1[1][1], line2[0][1] - line2[1][1]) #Typo was here
+
+    def det(a, b):
+        return a[0] * b[1] - a[1] * b[0]
+
+    div = det(xdiff, ydiff)
+    if div == 0:
+       return -1, -1
+
+    d = (det(*line1), det(*line2))
+    x = det(d, xdiff) / div
+    y = det(d, ydiff) / div
+    return x, y
+
+
+def point_distance(p1, p2):
+    return sqrt( (p1[0] - p2[0])**2 + (p1[1] - p2[1])**2 )
+
+def corner_pruning2(cnt):
+    if len(cnt) == 5:
+        # kaksi heikkoa 3 vahvaa
+        weaks = []
+        strongs = []
+
+        w = get_weakest_corner(cnt, weaks)
+        weaks.append(w)
+
+        w = get_weakest_corner(cnt, weaks)
+        weaks.append(w)
+
+        for i in range(0, 5):
+            if i not in weaks:
+                strongs.append(i)
+
+        # Testataan kaikki vahva-heikko suoraparit
+
+        lines = []
+
+        print weaks
+        print len(weaks)
+        print strongs
+        print len(strongs)
+        additional_points = []
+
+
+        #Lasketaan todennakoisimmin vastainen vahva kulma
+
+        excluded_strongpoint = 0
+        max_distance = 0
+        for s_p in strongs:
+            dist_sum = 0
+            for w_p in weaks:
+                dist_sum += point_distance(cnt[s_p][0], cnt[w_p][0])
+
+            if max_distance < dist_sum:
+                excluded_strongpoint = s_p
+                max_distance = dist_sum
+
+
+
+        for s_point in strongs:
+            if s_point == excluded_strongpoint:
+                continue
+            for w_point in weaks:
+                lines.append((cnt[s_point][0], cnt[w_point][0]))
+
+        for line1 in lines:
+            for line2 in lines:
+                # tarkistus saman weakpointin varalta
+                if (line1[1] == line2[1]).all():
+                    print "samat"
+                    continue
+
+                result = line_intersection(line1, line2)
+
+                # TODO: automaattinen leveys ja korkeus
+                if not((result[0] < 0) or (result[1] < 0) or (result[0] > 320) or (result[1] > 240)):
+                    #additional_points.append()
+                    ec = np.array([[[result[0], result[1]]]])
+                    cnt = np.append(cnt, ec, axis=0)
+
+
+        #return cnt
+        print "cnt ennen"
+        print cnt
+        while len(cnt) > 4:
+            cnt = prune_1_by_min_distance(cnt)
+
+        print "cnt jalkeen"
+        print cnt
+        return cnt
+
+    if len(cnt) == 6:
+        # nelja heikkoa 2 vahvaa
+        cnt = prune_1_by_min_distance(cnt)
+
+        cnt = corner_pruning2(cnt)
+
+
+        return cnt
+
+    return cnt
+
+
+def corner_angle(a, b, c):
+    e1 = -b + a
+    e2 = -b + c
+
+    num = np.dot(e1, e2)
+    denom = np.linalg.norm(e1) * np.linalg.norm(e2)
+    angle = np.arccos(num / denom) * 180 / np.pi
+
+    return angle
+
+def corner_pruning3(cnt):
+    if len(cnt) >= 5:
+        # kaksi heikkoa 3 vahvaa jos cnt on 5
+        # 4 heikkoa 2 vahvaa jos cnt on 6
+
+        if len(cnt) > 6:
+            cnt = prune_1_by_min_distance(cnt)
+            cnt = corner_pruning3(cnt)
+            return cnt
+
+        weaks = []
+        strongs = []
+
+        angles = []
+
+        for i in range(0, len(cnt)):
+            point2 = i + 1
+
+            if point2 >= len(cnt):
+                point2 -= len(cnt)
+
+            a = corner_angle(cnt[i-1][0], cnt[i][0], cnt[point2][0])
+            angles.append(a)
+
+        angles_np = np.array(angles)
+
+        k = 2
+
+        if len(cnt) == 5:
+            k = 2
+
+        if len(cnt) == 6:
+            k = 4
+
+        idx = np.argpartition(angles_np, -k)
+        weaks = idx[-k:]
+
+        for i in range(0, len(cnt)):
+            if i not in weaks:
+                strongs.append(i)
+
+        additional_points = np.empty((0, 1, 2), dtype=int)
+
+        for i in range(0, len(cnt)):
+            next_point = i + 1
+            next_point2 = i + 2
+            next_point3 = i + 3
+
+            if next_point >= len(cnt):
+                next_point -= len(cnt)
+
+            if next_point2 >= len(cnt):
+                next_point2 -= len(cnt)
+
+            if next_point3 >= len(cnt):
+                next_point3 -= len(cnt)
+
+            # Vahvoihin reunoihin ei kannata tehda lisalaskentaa
+            if (i in strongs) and (next_point in strongs):
+                continue
+
+            # Jos seuraava kulmapiste on "varma" niin ei siihen kannata piirtaa suoraa kun se menee ulos alueelta
+            if (i in weaks) and (next_point in strongs):
+                continue
+
+            # Ei oteta heikkojen kulmien valille piirrettyja linjoja
+            if (i in weaks) and (next_point in weaks):
+                if (next_point2 in weaks) and (next_point3 in weaks):
+                    continue
+
+            # Vahvoihin reunoihin ei voi tulla lisakulmia joten ei lasketa niita
+            if (next_point2 in strongs) and (next_point3 in strongs):
+                continue
+
+            # Ei voi vahvaan kulmaan tulla lisakulmaa koska menisi vaan alueelta ulos
+            if (next_point2 in strongs) and (next_point3 in weaks):
+                continue
+
+            line1 = (cnt[i][0], cnt[next_point][0])
+            line2 = (cnt[next_point2][0], cnt[next_point3][0])
+
+            result = line_intersection(line1, line2)
+
+            # TODO: automaattinen leveys ja korkeus
+            if not ((result[0] < 0) or (result[1] < 0) or (result[0] > 320) or (result[1] > 240)):
+                ec = np.array([[[result[0], result[1]]]])
+                additional_points = np.append(additional_points, ec, axis=0)
+
+        cnt = np.append(cnt, additional_points, axis=0)
+
+        sorted_weaks = sorted(weaks, key=int, reverse=True)
+
+        # Karsitaan heikot pois ensin
+        for w in sorted_weaks:
+            if len(cnt) == 4:
+                break
+            cnt = np.delete(cnt, w, 0)
+
+        # Viimeinen puhdistus, ei pitaisi aina edes menna tahan asti
+        while len(cnt) > 4:
+            cnt = prune_1_by_min_distance(cnt)
+
+        return cnt
+
+    return cnt
+
+
+def corner_pruning(cnt):
+    if len(cnt) == 5:  # 5 kulmaa
+        print "5 kulmaa"
+        MinDist = float('inf')
+        delete = 4
+        for idx1, i in enumerate(cnt):
+            for idx2, k in enumerate(cnt):
+                if not (i == k).all():
+                    dist = np.linalg.norm(i - k)
+                    if dist < MinDist:
+                        MinDist = dist
+                        delete = idx2
+        cnt = np.delete(cnt, delete, 0)
+
+    if len(cnt) > 5:  # yli 5 kulmaa
+        print 'yli 5 kulmaa'
+        cnt = np.delete(cnt, np.s_[4:], 0)
+
+    return cnt
 
 
 def segmentation(arg,image_gray):
@@ -98,24 +400,29 @@ def contourThatHasCentroid(image_bw, centroidx, centroidy, areafound):
             #tarkista onko edellinen centroid uudessa alueessa
             insidearea = cv2.pointPolygonTest(cnt, (centroidx, centroidy), False) 
             if insidearea == 1:
+                    
+                cnt = corner_pruning3(cnt)
+
+                cnt = cv2.convexHull(cnt)
+
                 # tama voi muuttua -------------------------------------------------------
                 # poista kulmat jos kulmia on yli 4
-                if len(cnt) == 5: # 5 kulmaa
-                        print '5 kulmaa'
-                        MinDist = float('inf')
-                        delete = 4
-                        for idx1, i in enumerate(cnt):
-                                for idx2, k in enumerate(cnt):
-                                        if not (i==k).all():
-                                                dist = np.linalg.norm(i-k)
-                                                if dist < MinDist:
-                                                        MinDist = dist
-                                                        delete = idx2
-                        cnt = np.delete(cnt, delete, 0)
-                        
-                if len(cnt) > 5: # yli 5 kulmaa
-                        print 'yli 5 kulmaa'
-                        cnt = np.delete(cnt, np.s_[4:], 0)
+##                if len(cnt) == 5: # 5 kulmaa
+##                        print '5 kulmaa'
+##                        MinDist = float('inf')
+##                        delete = 4
+##                        for idx1, i in enumerate(cnt):
+##                                for idx2, k in enumerate(cnt):
+##                                        if not (i==k).all():
+##                                                dist = np.linalg.norm(i-k)
+##                                                if dist < MinDist:
+##                                                        MinDist = dist
+##                                                        delete = idx2
+##                        cnt = np.delete(cnt, delete, 0)
+##                        
+##                if len(cnt) > 5: # yli 5 kulmaa
+##                        print 'yli 5 kulmaa'
+##                        cnt = np.delete(cnt, np.s_[4:], 0)
                 # ------------------------------------------------------------------------
                 
                 #laske centroid
@@ -210,6 +517,12 @@ def main():
         for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
                 #tee NumPy taulukko kameran kuvasta
                 image = frame.array
+
+                #ota kuva jos painetaan n
+                if key == ord("n"):
+                    timestr = time.strftime("%Y%m%d-%H%M%S")
+                    print timestr
+                    cv2.imwrite('/home/pi/kuvat/'+timestr+'.png', image)
 
                 #muuta kuva mustavalkoiseksi
                 image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
