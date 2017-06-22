@@ -395,8 +395,9 @@ def contourThatHasCentroid(image_bw, centroidx, centroidy, areafound):
         contours, hierarchy = cv2.findContours(image_bw,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
         for cnt in contours:
             cnt_len = cv2.arcLength(cnt, True)
-            cnt = cv2.approxPolyDP(cnt, 0.02*cnt_len, True)
             cnt = cv2.convexHull(cnt)
+            cnt = cv2.approxPolyDP(cnt, 0.02*cnt_len, True)
+            
             #tarkista onko edellinen centroid uudessa alueessa
             insidearea = cv2.pointPolygonTest(cnt, (centroidx, centroidy), False) 
             if insidearea == 1:
